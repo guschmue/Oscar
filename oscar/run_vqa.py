@@ -486,6 +486,8 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
     if args.fp16:
         try:
             from apex import amp
+            from apex.normalization import fused_layer_norm
+            amp.register_half_function(fused_layer_norm, "fused_layer_norm_affine")
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
@@ -1098,7 +1100,7 @@ def main():
     config.classifier = args.classifier
     config.cls_hidden_scale = args.cls_hidden_scale
     #config.use_img_layernorm = args.use_img_layernorm
-    
+
     # load discrete code
     if args.img_feature_type in ['dis_code', 'dis_code_t']:
         logger.info('Load discrete code from: {}'.format(args.data_dir))
