@@ -552,6 +552,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
         #epoch = 20
         #global_step = epoch*math.ceil(len(train_dataset)/(args.train_batch_size * args.gradient_accumulation_steps * (torch.distributed.get_world_size() if args.local_rank != -1 else 1)))
 
+        torch.cuda.synchronize()
         t_start = time.time()
         for step, batch in enumerate(train_dataloader):
             model.train()
@@ -615,6 +616,10 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
             #if args.max_steps > 0 and global_step > args.max_steps:
             #    epoch_iterator.close()
             #    break
+
+        torch.cuda.synchronize()
+        t_train_end = time.time()
+        logger.info('Epoch: %d, Actual Train Time: %.3f' % (epoch, t_train_end - t_start))
 
         # evaluation
         logger.info("Epoch: %d, global_step: %d" % (epoch, global_step))
