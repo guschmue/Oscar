@@ -36,7 +36,7 @@ MODEL_CLASSES = {
 
 log_json = []
 debug_size = 500
-
+local_rank = int(os.environ["LOCAL_RANK"])
 
 def _load_dataset(args, name):
     processor = processors[args.task_name]()
@@ -460,7 +460,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
     #if args.local_rank in [-1, 0]: tb_writer = SummaryWriter()
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
-    train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
+    train_sampler = RandomSampler(train_dataset) if local_rank == -1 else DistributedSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, num_workers=args.workers, sampler=train_sampler, batch_size=args.train_batch_size) #, collate_fn=trim_batch)
 
     if args.max_steps > 0:
@@ -497,8 +497,8 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
         model = torch.nn.DataParallel(model)
 
     # Distributed training (should be after apex fp16 initialization)
-    if args.local_rank != -1:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
+    if local_rank != -1:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
 
     # Train!
     logger.info("***** Running training *****")
@@ -506,7 +506,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
     logger.info("  Num Epochs = %d", args.num_train_epochs)
     logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
     logger.info("  Total train batch size (w. parallel, distributed & accumulation) = %d",
-                   args.train_batch_size * args.gradient_accumulation_steps * (torch.distributed.get_world_size() if args.local_rank != -1 else 1))
+                   args.train_batch_size * args.gradient_accumulation_steps * (torch.distributed.get_world_size() if local_rank != -1 else 1))
     logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", t_total)
 
@@ -594,10 +594,10 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
                 global_step += 1
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:# Log metrics
-                    if args.local_rank not in [-1, 0]:
+                    if local_rank not in [-1, 0]:
                         torch.distributed.barrier()
 
-                    if args.local_rank in [-1, 0] and args.evaluate_during_training:
+                    if local_rank in [-1, 0] and args.evaluate_during_training:
                     #if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
                         logger.info("Epoch: %d, global_step: %d" % (epoch, global_step))
                         eval_result, eval_score, upper_bound = evaluate(args, model, eval_dataset, prefix=global_step)
@@ -608,7 +608,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
 
                         logger.info("EVALERR: {}%".format(100 * best_score))
 
-                    if args.local_rank == 0:
+                    if local_rank == 0:
                         torch.distributed.barrier()
 
                     logging_loss = tr_loss
@@ -631,7 +631,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
             #best_model['optimizer'] = copy.deepcopy(optimizer.state_dict())
 
         # save checkpoints
-        if (args.local_rank in [-1, 0]) and (args.save_epoch>0 and epoch%args.save_epoch == 0) and (epoch>args.save_after_epoch):
+        if (local_rank in [-1, 0]) and (args.save_epoch>0 and epoch%args.save_epoch == 0) and (epoch>args.save_after_epoch):
             output_dir = os.path.join(args.output_dir, 'checkpoint-{}-{}'.format(epoch, global_step))
             if not os.path.exists(output_dir): os.makedirs(output_dir)
             model_to_save = best_model['model'].module if hasattr(model, 'module') else best_model['model']  # Take care of distributed/parallel training
@@ -650,7 +650,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
 
         epoch_log = {'epoch': epoch, 'eval_score': eval_score, 'best_score':best_score}
         log_json.append(epoch_log)
-        if args.local_rank in [-1, 0]:
+        if local_rank in [-1, 0]:
             with open(args.output_dir + '/eval_logs.json', 'w') as fp:
                 json.dump(log_json, fp)
 
@@ -664,7 +664,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
         #    train_iterator.close()
         #    break
 
-    if args.local_rank in [-1, 0]: # Save the final model checkpoint
+    if local_rank in [-1, 0]: # Save the final model checkpoint
         with open(args.output_dir + '/eval_logs.json', 'w') as fp:
             json.dump(log_json, fp)
 
@@ -696,11 +696,11 @@ def evaluate(args, model, eval_dataset=None, prefix=""):
     results = []
     t_start = time.time()
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
-        if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]: os.makedirs(eval_output_dir)
+        if not os.path.exists(eval_output_dir) and local_rank in [-1, 0]: os.makedirs(eval_output_dir)
 
         args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
         # Note that DistributedSampler samples randomly
-        eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
+        eval_sampler = SequentialSampler(eval_dataset) if local_rank == -1 else DistributedSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, num_workers=args.workers, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
         # Eval!
@@ -802,11 +802,11 @@ def test(args, model, eval_dataset=None, prefix=""):
     results = []
     t_start = time.time()
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
-        if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]: os.makedirs(eval_output_dir)
+        if not os.path.exists(eval_output_dir) and local_rank in [-1, 0]: os.makedirs(eval_output_dir)
 
         args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
         # Note that DistributedSampler samples randomly
-        eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
+        eval_sampler = SequentialSampler(eval_dataset) if local_rank == -1 else DistributedSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
         # Eval
@@ -1013,7 +1013,6 @@ def main():
     parser.add_argument('--fp16_opt_level', type=str, default='O1',
                         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
                              "See details at https://nvidia.github.io/apex/amp.html")
-    parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
     parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
@@ -1054,21 +1053,21 @@ def main():
         ptvsd.wait_for_attach()
 
     # Setup CUDA, GPU & distributed training
-    if args.local_rank == -1 or args.no_cuda:
+    if local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = torch.cuda.device_count()
     else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
-        torch.cuda.set_device(args.local_rank)
-        device = torch.device("cuda", args.local_rank)
+        torch.cuda.set_device(local_rank)
+        device = torch.device("cuda", local_rank)
         torch.distributed.init_process_group(backend='nccl')
         args.n_gpu = 1
     args.device = device
 
     # Setup logging
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                        datefmt = '%m/%d/%Y %H:%M:%S', level = logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
+                        datefmt = '%m/%d/%Y %H:%M:%S', level = logging.INFO if local_rank in [-1, 0] else logging.WARN)
     logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-                    args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
+                    local_rank, device, args.n_gpu, bool(local_rank != -1), args.fp16)
 
     # Set seed
     set_seed(args.seed, args.n_gpu)
@@ -1085,7 +1084,7 @@ def main():
     logger.info('Task Name: {}, #Labels: {}'.format(args.task_name, num_labels))
 
     # Load pretrained model and tokenizer
-    if args.local_rank not in [-1, 0]:
+    if local_rank not in [-1, 0]:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
     args.model_type = args.model_type.lower()
@@ -1131,7 +1130,7 @@ def main():
         elif args.code_level == 'bottom':
             model.init_code_embedding(train_code['embeddings_b'].t())
 
-    if args.local_rank == 0:
+    if local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
     model.to(args.device)
@@ -1161,9 +1160,9 @@ def main():
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
-    if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
+    if args.do_train and (local_rank == -1 or torch.distributed.get_rank() == 0):
         # Create output directory if needed
-        if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]: os.makedirs(args.output_dir)
+        if not os.path.exists(args.output_dir) and local_rank in [-1, 0]: os.makedirs(args.output_dir)
 
         logger.info("Saving model checkpoint to %s", args.output_dir)
         # Save a trained model, configuration and tokenizer using `save_pretrained()`. They can then be reloaded using `from_pretrained()`
@@ -1183,7 +1182,7 @@ def main():
 
     # Evaluation
     #results = {}
-    if args.do_eval and args.local_rank in [-1, 0]:
+    if args.do_eval and local_rank in [-1, 0]:
         checkpoints = [args.output_dir]
         if args.eval_all_checkpoints:
             checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + '/**/' + WEIGHTS_NAME, recursive=True)))
@@ -1199,7 +1198,7 @@ def main():
             #results.update(result)
 
     # Test-Dev
-    if args.do_test_dev and args.local_rank in [-1, 0]:
+    if args.do_test_dev and local_rank in [-1, 0]:
         checkpoints = [args.output_dir]
         if args.eval_all_checkpoints:
             checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + '/**/' + WEIGHTS_NAME, recursive=True)))
@@ -1213,7 +1212,7 @@ def main():
             test(args, model, test_dev_dataset, prefix=global_step)
 
     # Test
-    if args.do_test and args.local_rank in [-1, 0]:
+    if args.do_test and local_rank in [-1, 0]:
         checkpoints = [args.output_dir]
         if args.eval_all_checkpoints:
             checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + '/**/' + WEIGHTS_NAME, recursive=True)))
