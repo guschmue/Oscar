@@ -36,7 +36,7 @@ MODEL_CLASSES = {
 
 log_json = []
 debug_size = 500
-local_rank = int(os.environ["LOCAL_RANK"])
+local_rank = int(os.getenv('LOCAL_RANK','0'))
 
 def _load_dataset(args, name):
     processor = processors[args.task_name]()
