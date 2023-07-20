@@ -1034,7 +1034,8 @@ def main():
 
     args = parser.parse_args()
 
-    global local_rank = int(os.getenv('LOCAL_RANK',str(args.local_rank)))
+    global local_rank
+    local_rank = int(os.getenv('LOCAL_RANK',str(args.local_rank)))
     if args.philly:  # use philly
         logger.info('Info: Use Philly, all the output folders are reset.')
         args.output_dir = os.path.join(os.getenv('PT_OUTPUT_DIR'), args.output_dir)
