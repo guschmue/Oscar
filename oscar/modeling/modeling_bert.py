@@ -7,13 +7,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
-from transformers.pytorch_transformers.modeling_bert import (BertEmbeddings, 
+from transformers.models.bert.modeling_bert import (BertEmbeddings,
         BertSelfAttention, BertAttention, BertEncoder, BertLayer, 
         BertSelfOutput, BertIntermediate, BertOutput,
-        BertPooler, BertLayerNorm, BertPreTrainedModel,
-		BertPredictionHeadTransform, BertOnlyMLMHead, BertLMPredictionHead,
-        BertConfig, BERT_PRETRAINED_MODEL_ARCHIVE_MAP,
-        load_tf_weights_in_bert)
+        BertPooler, BertPreTrainedModel, BertPredictionHeadTransform,
+        BertOnlyMLMHead, BertLMPredictionHead,
+        BERT_PRETRAINED_MODEL_ARCHIVE_LIST, load_tf_weights_in_bert)
+from transformers import BertConfig
 from .modeling_utils import CaptionPreTrainedModel, ImgPreTrainedModel
 from ..utils.cbs import ConstrainedBeamSearch, select_best_beam_with_constraints
 
@@ -66,7 +66,7 @@ class CaptionBertSelfAttention(BertSelfAttention):
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(*new_context_layer_shape)
 
-        outputs = (context_layer, attention_probs) if self.output_attentions else (context_layer,)
+        outputs = (context_layer,)
         return outputs
 
 
@@ -178,9 +178,9 @@ class BertImgModel(BertPreTrainedModel):
             self.img_embedding = nn.Linear(self.img_dim, self.config.hidden_size, bias=True)
             self.dropout = nn.Dropout(config.hidden_dropout_prob)
             if self.use_img_layernorm:
-                self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.img_layer_norm_eps)
+                self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.img_layer_norm_eps)
 
-        self.apply(self.init_weights)
+        self.init_weights()
 
     def _resize_token_embeddings(self, new_num_tokens):
         old_embeddings = self.embeddings.word_embeddings
@@ -317,7 +317,7 @@ class ImageBertForSequenceClassification(BertPreTrainedModel):
                 )
         else:
             self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)  # original
-        self.apply(self.init_weights)
+        self.init_weights()
 
     def init_code_embedding(self, em):
         self.bert.code_embeddings.weight.data = em.clone()
@@ -381,7 +381,7 @@ class ImageBertForMultipleChoice(BertPreTrainedModel):
                     self.classifier = nn.Sequential(
                     nn.Linear(config.num_choice*config.hidden_size, config.hidden_size*config.cls_hidden_scale),
                     nn.ReLU(),
-                    BertLayerNorm(config.hidden_size*config.cls_hidden_scale, eps=config.layer_norm_eps),
+                    nn.LayerNorm(config.hidden_size*config.cls_hidden_scale, eps=config.layer_norm_eps),
                     nn.Linear(config.hidden_size*config.cls_hidden_scale, self.config.num_labels)
                 )
                 else:
@@ -964,7 +964,7 @@ class BertImgForPreTraining(ImgPreTrainedModel):
 
     """
     config_class = BertConfig
-    pretrained_model_archive_map = BERT_PRETRAINED_MODEL_ARCHIVE_MAP
+    pretrained_model_archive_list = BERT_PRETRAINED_MODEL_ARCHIVE_LIST
     load_tf_weights = load_tf_weights_in_bert
     base_model_prefix = "bert"
 
@@ -987,7 +987,7 @@ class BertImgForPreTraining(ImgPreTrainedModel):
             # cf https://github.com/pytorch/pytorch/pull/5617
             module.weight.data.normal_(mean=0.0,
                                        std=self.config.initializer_range)
-        elif isinstance(module, BertLayerNorm):
+        elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:

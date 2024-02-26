@@ -16,8 +16,8 @@ from oscar.utils.tsv_file import TSVFile
 from oscar.utils.logger import setup_logger
 from oscar.utils.misc import mkdir, set_seed
 from oscar.modeling.modeling_bert import ImageBertForSequenceClassification
-from transformers.pytorch_transformers import BertTokenizer, BertConfig 
-from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
+from transformers.models.bert.tokenization_bert import BertTokenizer
+from transformers import BertConfig, AdamW, get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
 
 
 class RetrievalDataset(Dataset):
@@ -337,11 +337,11 @@ def train(args, train_dataset, val_dataset, model, tokenizer):
     ]
     optimizer = AdamW(grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     if args.scheduler == "constant":
-        scheduler = WarmupConstantSchedule(
-                optimizer, warmup_steps=args.warmup_steps)
+        scheduler = get_constant_schedule_with_warmup(
+                optimizer, num_warmup_steps=args.warmup_steps)
     elif args.scheduler == "linear":
-        scheduler = WarmupLinearSchedule(
-                optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
+        scheduler = get_linear_schedule_with_warmup(
+                optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
     else:
         raise ValueError("Unknown scheduler type: {}".format(args.scheduler))
 
