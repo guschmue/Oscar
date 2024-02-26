@@ -12,8 +12,8 @@ from transformers.models.bert.modeling_bert import (BertEmbeddings,
         BertSelfOutput, BertIntermediate, BertOutput,
         BertPooler, BertPreTrainedModel, BertPredictionHeadTransform,
         BertOnlyMLMHead, BertLMPredictionHead,
-        BertConfig, BERT_PRETRAINED_MODEL_ARCHIVE_LIST,
-        load_tf_weights_in_bert)
+        BERT_PRETRAINED_MODEL_ARCHIVE_LIST, load_tf_weights_in_bert)
+from transformers import BertConfig
 from .modeling_utils import CaptionPreTrainedModel, ImgPreTrainedModel
 from ..utils.cbs import ConstrainedBeamSearch, select_best_beam_with_constraints
 
