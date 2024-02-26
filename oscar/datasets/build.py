@@ -3,7 +3,7 @@ import logging
 import torch
 from oscar.utils.misc import get_world_size
 from .oscar_tsv import OscarTSVDataset
-from transformers.pytorch_transformers import BertTokenizer
+from transformers.models.bert.tokenization_bert import BertTokenizer
 
 
 class BatchCollator(object):

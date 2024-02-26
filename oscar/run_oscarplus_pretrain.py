@@ -17,12 +17,12 @@ import numpy as np
 import torch
 
 from oscar.modeling.modeling_bert import BertImgForPreTraining
-from transformers.pytorch_transformers import (WEIGHTS_NAME, BertConfig,
-                                  BertTokenizer)
+from transformers.utils import WEIGHTS_NAME
+from transformers.models.bert.tokenization_bert import BertTokenizer
 
 from oscar.datasets.build import make_data_loader
 
-from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule
+from transformers import BertConfig, AdamW, get_linear_schedule_with_warmup
 from oscar.utils.misc import mkdir, get_rank
 from oscar.utils.metric_logger import TensorboardLogger
 
@@ -299,9 +299,9 @@ def main():
 
     optimizer = AdamW(optimizer_grouped_parameters,
                               lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = WarmupLinearSchedule(optimizer,
-                                     warmup_steps=args.warmup_steps,
-                                     t_total=args.max_iters)
+    scheduler = get_linear_schedule_with_warmup(optimizer,
+                                     num_warmup_steps=args.warmup_steps,
+                                     num_training_steps=args.max_iters)
 
     if arguments['iteration'] > 0 and os.path.isfile(os.path.join(last_checkpoint_dir, 'optimizer.pth')):  # recovery
         logger.info(

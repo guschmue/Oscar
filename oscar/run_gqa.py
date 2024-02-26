@@ -19,8 +19,9 @@ from torch.utils.data.distributed import DistributedSampler
 import _pickle as cPickle
 
 from oscar.modeling.modeling_bert import ImageBertForSequenceClassification
-from transformers.pytorch_transformers import WEIGHTS_NAME, BertTokenizer, BertConfig
-from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule, WarmupConstantSchedule
+from transformers.utils import WEIGHTS_NAME
+from transformers.models.bert.tokenization_bert import BertTokenizer
+from transformers import BertConfig, AdamW, get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
 
 from oscar.utils.misc import set_seed
 from oscar.utils.task_utils import (_truncate_seq_pair, convert_examples_to_features_vqa,
@@ -420,7 +421,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
 
     if args.fp16:
         try:

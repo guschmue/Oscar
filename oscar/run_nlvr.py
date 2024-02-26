@@ -46,8 +46,10 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 import _pickle as cPickle
 
-from transformers.pytorch_transformers import (WEIGHTS_NAME, BertConfig, BertTokenizer)
-from transformers.pytorch_transformers import AdamW, WarmupLinearSchedule
+from transformers.utils import WEIGHTS_NAME
+from transformers import BertConfig
+from transformers.models.bert.tokenization_bert import BertTokenizer
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 from oscar.modeling.modeling_bert import ImageBertForMultipleChoice, ImageBertForSequenceClassification
 
@@ -404,7 +406,7 @@ def train(args, train_dataset, eval_dataset, model, tokenizer):
         optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     elif args.optim == 'Adamax':
         optimizer = Adamax(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
 
     if args.fp16:
         try:
