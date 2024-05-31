@@ -7,12 +7,10 @@ import logging
 import torch
 import torch.nn.functional as F
 
-from transformers.pytorch_transformers.modeling_bert import (BertConfig,
-        load_tf_weights_in_bert, BERT_PRETRAINED_MODEL_ARCHIVE_MAP,
+from transformers.models.bert.modeling_bert import (load_tf_weights_in_bert,
         BertPreTrainedModel)
-from transformers.pytorch_transformers.modeling_utils import (PreTrainedModel,
-    WEIGHTS_NAME, TF_WEIGHTS_NAME)
-from transformers.pytorch_transformers.file_utils import cached_path
+from transformers import PreTrainedModel, BertConfig
+from transformers.utils import (WEIGHTS_NAME, TF_WEIGHTS_NAME)
 
 
 logger = logging.getLogger()
@@ -22,7 +20,6 @@ class CaptionPreTrainedModel(BertPreTrainedModel):
     """ Expand base class for image captioning modeling.
     """
     config_class = BertConfig
-    pretrained_model_archive_map = BERT_PRETRAINED_MODEL_ARCHIVE_MAP
     load_tf_weights = load_tf_weights_in_bert
     base_model_prefix = 'bert'
 
