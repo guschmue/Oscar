@@ -12,7 +12,7 @@ from transformers.models.bert.modeling_bert import (BertEmbeddings,
         BertSelfOutput, BertIntermediate, BertOutput,
         BertPooler, BertPreTrainedModel, BertPredictionHeadTransform,
         BertOnlyMLMHead, BertLMPredictionHead,
-        BERT_PRETRAINED_MODEL_ARCHIVE_LIST, load_tf_weights_in_bert)
+        load_tf_weights_in_bert)
 from transformers import BertConfig
 from .modeling_utils import CaptionPreTrainedModel, ImgPreTrainedModel
 from ..utils.cbs import ConstrainedBeamSearch, select_best_beam_with_constraints
@@ -964,7 +964,6 @@ class BertImgForPreTraining(ImgPreTrainedModel):
 
     """
     config_class = BertConfig
-    pretrained_model_archive_list = BERT_PRETRAINED_MODEL_ARCHIVE_LIST
     load_tf_weights = load_tf_weights_in_bert
     base_model_prefix = "bert"
 
